@@ -8,6 +8,7 @@ module Pod
     #
     class FileAccessor
       HEADER_EXTENSIONS = Xcodeproj::Constants::HEADER_FILES_EXTENSIONS
+      HEADER_PATTERNS = "*{#{HEADER_EXTENSIONS.join(',')}}".freeze
 
       # @return [Sandbox::PathList] the directory where the source of the Pod
       #         is located.
@@ -111,6 +112,16 @@ module Pod
         paths_for_attribute(:vendored_frameworks, true)
       end
 
+      # @return [Array<Pathname>] The paths of the framework headers that come
+      #         shipped with the Pod.
+      #
+      def vendored_frameworks_headers
+        vendored_frameworks.map do |framework|
+          headers_dir = (framework + 'Headers').realpath
+          Pathname.glob(headers_dir + HEADER_PATTERNS)
+        end.flatten.uniq
+      end
+
       # @return [Array<Pathname>] The paths of the library bundles that come
       #         shipped with the Pod.
       #
@@ -198,7 +209,7 @@ module Pod
       def glob_for_attribute(attribute)
         globs = {
           :source_files => '*.{h,hpp,hh,m,mm,c,cpp}'.freeze,
-          :public_header_files => "*.{#{ HEADER_EXTENSIONS * ',' }}".freeze,
+          :public_header_files => HEADER_PATTERNS,
         }
         globs[attribute]
       end
