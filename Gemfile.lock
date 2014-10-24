@@ -7,8 +7,8 @@ GIT
 
 GIT
   remote: https://github.com/CocoaPods/Core.git
-  revision: 2a425f9e040d5ad3f94cb0e370fc510f6a16aa32
-  branch: master
+  revision: 0b9737f31e5a8e0d3c35a1b88b5eb9cd826ebccc
+  branch: lockfile-checkout-options
   specs:
     cocoapods-core (0.34.4)
       activesupport (>= 3.2.15)

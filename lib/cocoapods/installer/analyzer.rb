@@ -264,29 +264,47 @@ module Pod
       #
       def fetch_external_sources
         return unless allow_pre_downloads?
-        deps_to_fetch = []
-        deps_to_fetch_if_needed = []
-        deps_with_external_source = podfile.dependencies.select(&:external_source)
 
-        if update_mode == :all
-          deps_to_fetch = deps_with_external_source
-        else
+        unless dependencies_to_fetch.empty?
+          UI.section 'Fetching external sources' do
+            dependencies_to_fetch.uniq.sort.each do |dependency|
+              fetch_external_source(dependency, !pods_to_fetch.include?(dependency.name))
+            end
+          end
+        end
+      end
+
+      def fetch_external_source(dependency, use_lockfile_options)
+        checkout_options = lockfile.checkout_options_for_pod_named(dependency.root_name) if lockfile
+        source = checkout_options && use_lockfile_options ?
+          ExternalSources.from_params(checkout_options, dependency, podfile.defined_in_file) :
+          ExternalSources.from_dependency(dependency, podfile.defined_in_file)
+        source.fetch(sandbox)
+      end
+
+      def dependencies_to_fetch
+        @deps_to_fetch ||= begin
+          deps_to_fetch = []
+          deps_to_fetch_if_needed = []
+          deps_with_external_source = podfile.dependencies.select(&:external_source)
+
+          if update_mode == :all
+            deps_to_fetch = deps_with_external_source
+          else
+            deps_to_fetch = deps_with_external_source.select { |dep| pods_to_fetch.include?(dep.name) }
+            deps_to_fetch_if_needed = deps_with_external_source.select { |dep| result.podfile_state.unchanged.include?(dep.name) }
+            deps_to_fetch += deps_to_fetch_if_needed.select { |dep| sandbox.specification(dep.name).nil? || !dep.external_source[:local].nil? || !dep.external_source[:path].nil? || !sandbox.pod_dir(dep.name).directory? }
+          end
+        end
+      end
+
+      def pods_to_fetch
+        @pods_to_fetch ||= begin
           pods_to_fetch = result.podfile_state.added + result.podfile_state.changed
           if update_mode == :selected
             pods_to_fetch += update[:pods]
           end
-          deps_to_fetch = deps_with_external_source.select { |dep| pods_to_fetch.include?(dep.name) }
-          deps_to_fetch_if_needed = deps_with_external_source.select { |dep| result.podfile_state.unchanged.include?(dep.name) }
-          deps_to_fetch += deps_to_fetch_if_needed.select { |dep| sandbox.specification(dep.name).nil? || !dep.external_source[:local].nil? || !dep.external_source[:path].nil? || !sandbox.pod_dir(dep.name).directory? }
-        end
-
-        unless deps_to_fetch.empty?
-          UI.section 'Fetching external sources' do
-            deps_to_fetch.uniq.sort.each do |dependency|
-              source = ExternalSources.from_dependency(dependency, podfile.defined_in_file)
-              source.fetch(sandbox)
-            end
-          end
+          pods_to_fetch
         end
       end
 
